@@ -1,0 +1,5 @@
+{
+  "name": "Scavenger: Your last resort to cook",
+  "description": "A survivalist cooking assistant that generates creative recipes from limited supplies using Gemini AI and provides visual renders of possible outcomes.",
+  "requestFramePermissions": []
+}

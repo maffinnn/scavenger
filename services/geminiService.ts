@@ -1,27 +1,29 @@
 
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
-import { Ingredient, Recipe } from "../types";
+import { Ingredient, Recipe, Language } from "../types";
 
 const getAIClient = () => {
   return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
-export const generateRecipesWithAI = async (ingredients: Ingredient[], cuisine: string): Promise<Recipe[]> => {
+export const generateRecipesWithAI = async (ingredients: Ingredient[], cuisine: string, lang: Language = Language.EN): Promise<Recipe[]> => {
   const ai = getAIClient();
   const ingredientList = ingredients.map(i => `${i.qty} ${i.unit} of ${i.name}`).join(', ');
 
+  const langInstruction = lang === Language.ZH 
+    ? "所有输出文本（名称、步骤、配料、难度等）必须使用简体中文。请确保食谱名称和描述是标准且通俗易懂的。"
+    : "All output text MUST be in English. Ensure recipe names and descriptions are standard, clear, and appetizing.";
+
   const prompt = `
-    Role: You are a survivalist AI cooking assistant named "Scavenger".
+    Role: You are a professional culinary assistant.
     Context: The user has limited resources: [${ingredientList}]. 
-    Assume they also have basic staples (salt, pepper, oil, water, flour, sugar).
+    Assume they also have basic staples (salt, pepper, oil, water, flour, sugar, butter, soy sauce).
     
-    Task: Generate 3 distinct recipes based STRICTLY on these available resources. 
-    If they don't have enough ingredients for a "real" meal, invent a creative survival dish using what they have.
-    The names of the dishes should sound slightly dire or utilitarian (e.g., "Rationed Protein Stew", "Sector 7 Stir-fry").
-    
-    CRITICAL ADDITION: For each recipe, identify the closest REAL WORLD recipe name. Provide this for visual reference.
+    Task: Generate 3 distinct, high-quality recipes based on these available resources. 
+    The names of the dishes should be standard, professional, and recognizable culinary names (e.g., "Homemade Tomato Pasta" instead of "Red Scavenger Mash").
     
     Cuisine Bias: ${cuisine} style.
+    Language Instruction: ${langInstruction}
 
     Return strictly valid JSON.
   `;
@@ -40,10 +42,10 @@ export const generateRecipesWithAI = async (ingredients: Ingredient[], cuisine: 
               type: Type.OBJECT,
               properties: {
                 id: { type: Type.INTEGER },
-                name: { type: Type.STRING, description: "Dire survivalist name of the dish" },
-                real_world_match: { type: Type.STRING, description: "Common real-world name of this dish" },
+                name: { type: Type.STRING, description: "Standard, appetizing name of the dish" },
+                real_world_match: { type: Type.STRING, description: "The common name this dish is known by globally" },
                 cuisine: { type: Type.STRING },
-                time: { type: Type.STRING, description: "Time to prepare, e.g. 15m" },
+                time: { type: Type.STRING, description: "Time to prepare" },
                 difficulty: { type: Type.STRING, description: "Easy, Medium, or Hard" },
                 ingredients: { type: Type.ARRAY, items: { type: Type.STRING } },
                 instructions: { type: Type.ARRAY, items: { type: Type.STRING } },
@@ -77,7 +79,7 @@ export const generateRecipesWithAI = async (ingredients: Ingredient[], cuisine: 
 
 export const generateRecipeImage = async (dishName: string): Promise<string | null> => {
   const ai = getAIClient();
-  const prompt = `Professional food photography of ${dishName}, appetizing but in a survivalist/rustic setting, high resolution, 4k, cinematic lighting, shallow depth of field.`;
+  const prompt = `Professional food photography of ${dishName}, highly appetizing, elegant plating, high resolution, 4k, cinematic lighting, shallow depth of field, neutral background.`;
 
   try {
     const response = await ai.models.generateContent({

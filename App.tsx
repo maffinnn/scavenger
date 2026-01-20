@@ -1,29 +1,114 @@
 
 import React, { useState, useEffect } from 'react';
-import { Plus, X, Utensils, Search, Box, Loader2, Radio, Globe, Video, Download, Play, ShieldAlert, AlertCircle, Map } from 'lucide-react';
-import { Ingredient, Recipe, UNITS, CuisineType } from './types';
+import { Plus, X, Utensils, Search, Box, Loader2, Radio, Map, AlertCircle } from 'lucide-react';
+import { Ingredient, Recipe, UNITS, CuisineType, Language } from './types';
 import { generateRecipesWithAI, generateRecipeImage } from './services/geminiService';
-import { GoogleGenAI } from "@google/genai";
 import RecipeCard from './components/RecipeCard';
 
+const TRANSLATIONS = {
+  [Language.EN]: {
+    title: "SCAVENGER",
+    subtitle: "RESOURCE OPTIMIZATION ENGINE",
+    scanCache: "Scan Cache: Resource Input",
+    singleEntry: "SINGLE_ENTRY_MODE: ENABLED",
+    placeholder: "RESOURCE NAME (E.G. POTATOES)",
+    qty: "QTY",
+    waiting: "Waiting for input...",
+    sectorSelection: "Operational Sector Selection",
+    execute: "EXECUTE RESOURCE ANALYSIS",
+    calculating: "CALCULATING PROTOCOLS...",
+    analysisComplete: "Yield Analysis Complete",
+    wipeData: "Wipe Data >>",
+    validationChars: "CRITICAL: ENGLISH ALPHABETIC CHARACTERS ONLY.",
+    validationMultiple: "INVALID ENTRY: MULTIPLE RESOURCES DETECTED. ENTER ONE AT A TIME.",
+    validationComplex: "INVALID ENTRY: INPUT TOO COMPLEX. ENTER A SINGLE RESOURCE NAME.",
+    validationExists: "RESOURCE ALREADY REGISTERED IN CACHE.",
+    breach: "System breach or connectivity lost. Survival protocols offline.",
+    cuisines: {
+      [CuisineType.Survival]: "Survival (Basic)",
+      [CuisineType.Italian]: "Italian Sector",
+      [CuisineType.Asian]: "Asian Sector",
+      [CuisineType.Latin]: "Latin Sector",
+      [CuisineType.MiddleEastern]: "Arid/Desert Sector",
+      [CuisineType.Nordic]: "Arctic/Cold Sector",
+      [CuisineType.French]: "Gourmet/Luxury Sector",
+      [CuisineType.Military]: "Military/High-Cal",
+      [CuisineType.Healthy]: "Nutritional/Vitality",
+      [CuisineType.PlantBased]: "Foraged/Botanical",
+      [CuisineType.Comfort]: "Morale/Sweet Sector"
+    },
+    units: {
+      'pcs': 'PCS',
+      'g': 'G',
+      'kg': 'KG',
+      'ml': 'ML',
+      'l': 'L',
+      'cups': 'CUPS',
+      'tbsp': 'TBSP',
+      'tsp': 'TSP',
+      'packs': 'PACKS'
+    }
+  },
+  [Language.ZH]: {
+    title: "拾荒者",
+    subtitle: "资源优化引擎",
+    scanCache: "缓存扫描：物资输入",
+    singleEntry: "单次输入模式：已启用",
+    placeholder: "资源名称（如：马铃薯）",
+    qty: "数量",
+    waiting: "等待输入...",
+    sectorSelection: "行动分区选择",
+    execute: "执行资源分析",
+    calculating: "正在计算协议...",
+    analysisComplete: "产量分析完成",
+    wipeData: "清除数据 >>",
+    validationChars: "关键：仅限中英文字符。",
+    validationMultiple: "无效条目：检测到多个资源。请逐个输入。",
+    validationComplex: "无效条目：输入太复杂。请输入单个资源名称。",
+    validationExists: "资源已在缓存中注册。",
+    breach: "系统漏洞或连接丢失。生存协议离线。",
+    cuisines: {
+      [CuisineType.Survival]: "基础生存区",
+      [CuisineType.Italian]: "意式分区",
+      [CuisineType.Asian]: "亚洲分区",
+      [CuisineType.Latin]: "拉美分区",
+      [CuisineType.MiddleEastern]: "荒漠/干旱区",
+      [CuisineType.Nordic]: "极地/寒冷区",
+      [CuisineType.French]: "精细/奢华区",
+      [CuisineType.Military]: "军用/高能区",
+      [CuisineType.Healthy]: "营养/生命力",
+      [CuisineType.PlantBased]: "采集/植被区",
+      [CuisineType.Comfort]: "士气/甜品区"
+    },
+    units: {
+      'pcs': '个/件',
+      'g': '克',
+      'kg': '公斤',
+      'ml': '毫升',
+      'l': '升',
+      'cups': '杯',
+      'tbsp': '大勺',
+      'tsp': '小勺',
+      'packs': '包/袋'
+    }
+  }
+};
+
 export default function App() {
+  const [language, setLanguage] = useState<Language>(Language.EN);
+  const t = TRANSLATIONS[language];
+
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [nameInput, setNameInput] = useState("");
   const [qtyInput, setQtyInput] = useState("");
   const [unitInput, setUnitInput] = useState("pcs");
   const [selectedCuisine, setSelectedCuisine] = useState<CuisineType>(CuisineType.Survival);
   
-  // Validation State
   const [validationError, setValidationError] = useState("");
-
-  // AI State
   const [generatedRecipes, setGeneratedRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  // Telemetry State
   const [visitorCount, setVisitorCount] = useState<number | null>(null);
-  const [telemetryStatus, setTelemetryStatus] = useState<"SYNCING" | "ONLINE" | "RECOVERY">("SYNCING");
 
   useEffect(() => {
     const trackVisitor = async () => {
@@ -37,15 +122,10 @@ export default function App() {
         if (response.ok) {
           const data = await response.json();
           setVisitorCount(data.count || data.value);
-          setTelemetryStatus("ONLINE");
-        } else {
-          throw new Error("API_REJECTED");
         }
       } catch (err) {
         clearTimeout(timeoutId);
-        setTelemetryStatus("RECOVERY");
-        const localId = Math.floor(Math.random() * 90000) + 10000;
-        setVisitorCount(localId);
+        setVisitorCount(Math.floor(Math.random() * 90000) + 10000);
       }
     };
     trackVisitor();
@@ -53,24 +133,13 @@ export default function App() {
 
   const validateInput = (value: string) => {
     if (!value) return { valid: true, msg: "" };
-    
-    // 1. English Only check (Alphabetic + spaces)
-    const englishRegex = /^[A-Za-z\s]+$/;
-    if (!englishRegex.test(value)) {
-      return { valid: false, msg: "CRITICAL: ENGLISH ALPHABETIC CHARACTERS ONLY." };
+    const regex = language === Language.EN ? /^[A-Za-z\s]+$/ : /^[\u4e00-\u9fa5A-Za-z\s]+$/;
+    if (!regex.test(value)) return { valid: false, msg: t.validationChars };
+    if (value.includes(",") || value.includes(";") || value.includes("&") || value.includes("，") || value.includes("；")) {
+       return { valid: false, msg: t.validationMultiple };
     }
-
-    // 2. List detection (Checking for commas or common list markers)
-    if (value.includes(",") || value.includes(";") || value.includes("&")) {
-       return { valid: false, msg: "INVALID ENTRY: MULTIPLE RESOURCES DETECTED. ENTER ONE AT A TIME." };
-    }
-
-    // 3. Word count check
     const wordCount = value.trim().split(/\s+/).length;
-    if (wordCount > 4) {
-      return { valid: false, msg: "INVALID ENTRY: INPUT TOO COMPLEX. ENTER A SINGLE RESOURCE NAME." };
-    }
-
+    if (wordCount > 4) return { valid: false, msg: t.validationComplex };
     return { valid: true, msg: "" };
   };
 
@@ -83,26 +152,23 @@ export default function App() {
 
   const handleAddIngredient = () => {
     if (!nameInput.trim()) return;
-    
     const validation = validateInput(nameInput);
     if (!validation.valid) {
       setValidationError(validation.msg);
       return;
     }
-
     const newIng: Ingredient = {
       name: nameInput.trim().toLowerCase(),
       qty: parseFloat(qtyInput) || 1, 
       unit: unitInput
     };
-
     if (!ingredients.some(i => i.name === newIng.name)) {
       setIngredients([...ingredients, newIng]);
       setNameInput("");
       setQtyInput("");
       setValidationError("");
     } else {
-      setValidationError("RESOURCE ALREADY REGISTERED IN CACHE.");
+      setValidationError(t.validationExists);
     }
   };
 
@@ -125,7 +191,7 @@ export default function App() {
     setError("");
     setGeneratedRecipes([]);
     try {
-      const recipes = await generateRecipesWithAI(ingredients, selectedCuisine);
+      const recipes = await generateRecipesWithAI(ingredients, selectedCuisine, language);
       const recipesWithState = recipes.map(r => ({ ...r, imageUrl: null, imageLoading: true }));
       setGeneratedRecipes(recipesWithState);
       recipesWithState.forEach(async (recipe) => {
@@ -141,7 +207,7 @@ export default function App() {
         }
       });
     } catch (err: any) {
-      setError("System breach or connectivity lost. Survival protocols offline.");
+      setError(t.breach);
     } finally {
       setLoading(false);
     }
@@ -156,29 +222,30 @@ export default function App() {
                <Box className="h-7 w-7 text-amber-600" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-[0.2em] text-stone-100 uppercase">SCAVENGER <span className="text-amber-600 text-xs align-top bg-amber-950/30 px-1 py-0.5 rounded ml-1 border border-amber-900/20">v3.0</span></h1>
-              <span className="text-[10px] text-stone-500 font-bold tracking-[0.3em] block mt-1 uppercase">RESOURCE OPTIMIZATION ENGINE</span>
+              <h1 className="text-2xl font-bold tracking-[0.2em] text-stone-100 uppercase">{t.title} <span className="text-amber-600 text-xs align-top bg-amber-950/30 px-1 py-0.5 rounded ml-1 border border-amber-900/20">v3.2</span></h1>
+              <span className="text-[10px] text-stone-500 font-bold tracking-[0.3em] block mt-1 uppercase">{t.subtitle}</span>
             </div>
           </div>
-          <div className="hidden md:flex items-center gap-6">
-            <div className="bg-stone-950 px-3 py-1 border border-amber-900/30 rounded-sm">
-                 <span className="text-xs font-bold text-amber-500">
-                   NODE_{visitorCount !== null ? visitorCount.toString().padStart(6, '0') : 'SYNC...'}
-                 </span>
+          <div className="flex items-center gap-4">
+            <div className="flex bg-stone-950 border border-stone-800 rounded-sm p-1">
+              <button onClick={() => setLanguage(Language.EN)} className={`px-3 py-1 text-[10px] font-bold transition-all ${language === Language.EN ? 'bg-amber-900 text-white' : 'text-stone-600 hover:text-stone-400'}`}>EN</button>
+              <button onClick={() => setLanguage(Language.ZH)} className={`px-3 py-1 text-[10px] font-bold transition-all ${language === Language.ZH ? 'bg-amber-900 text-white' : 'text-stone-600 hover:text-stone-400'}`}>ZH</button>
+            </div>
+            <div className="hidden md:block bg-stone-950 px-3 py-1 border border-amber-900/30 rounded-sm">
+                 <span className="text-xs font-bold text-amber-500">NODE_{visitorCount !== null ? visitorCount.toString().padStart(6, '0') : 'SYNC...'}</span>
             </div>
           </div>
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto p-4 md:p-8 space-y-10">
-        {/* INPUT SECTION */}
         <section className={`bg-stone-900 rounded-sm border border-stone-800 p-8 transition-all relative overflow-hidden shadow-xl ${generatedRecipes.length > 0 ? 'opacity-60 hover:opacity-100' : ''}`}>
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-xs font-bold uppercase tracking-[0.3em] text-amber-700 flex items-center gap-2">
-              <Utensils className="h-4 w-4" /> Scan Cache: Resource Input
+              <Utensils className="h-4 w-4" /> {t.scanCache}
             </h2>
             <div className="text-[9px] text-stone-600 uppercase font-bold bg-stone-950 px-2 py-1 rounded border border-stone-800">
-              SINGLE_ENTRY_MODE: ENABLED
+              {t.singleEntry}
             </div>
           </div>
 
@@ -189,7 +256,7 @@ export default function App() {
                 value={nameInput}
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
-                placeholder="RESOURCE NAME (E.G. POTATOES)"
+                placeholder={t.placeholder}
                 className={`w-full px-5 py-4 bg-stone-950 border rounded-sm text-stone-200 placeholder-stone-700 focus:outline-none uppercase text-sm transition-colors ${
                   validationError ? 'border-red-900 focus:border-red-600' : 'border-stone-800 focus:border-amber-900'
                 }`}
@@ -201,15 +268,15 @@ export default function App() {
                 value={qtyInput}
                 onChange={(e) => setQtyInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="QTY"
+                placeholder={t.qty}
                 className="w-24 px-5 py-4 bg-stone-950 border border-stone-800 rounded-sm text-stone-200 placeholder-stone-700 focus:outline-none focus:border-amber-900 uppercase text-sm"
               />
               <select 
                 value={unitInput}
                 onChange={(e) => setUnitInput(e.target.value)}
-                className="w-28 px-3 py-4 bg-stone-950 border border-stone-800 rounded-sm text-stone-300 focus:outline-none focus:border-amber-900 uppercase text-xs font-bold tracking-widest cursor-pointer"
+                className="w-32 px-3 py-4 bg-stone-950 border border-stone-800 rounded-sm text-stone-300 focus:outline-none focus:border-amber-900 uppercase text-[10px] font-bold tracking-widest cursor-pointer"
               >
-                {UNITS.map(u => <option key={u} value={u}>{u.toUpperCase()}</option>)}
+                {UNITS.map(u => <option key={u} value={u}>{(t.units[u as keyof typeof t.units] || u).toUpperCase()}</option>)}
               </select>
               <button 
                 onClick={handleAddIngredient} 
@@ -223,7 +290,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Validation Feedback */}
           <div className="min-h-[24px] mb-6">
             {validationError && (
               <p className="text-[10px] text-red-500 font-bold flex items-center gap-2 animate-pulse uppercase tracking-wider">
@@ -236,23 +302,22 @@ export default function App() {
             {ingredients.length === 0 ? (
               <div className="w-full h-full flex flex-col items-center justify-center text-stone-700 py-4">
                 <Radio className="h-6 w-6 animate-pulse mb-2" />
-                <p className="text-[10px] uppercase tracking-widest font-bold">Waiting for input...</p>
+                <p className="text-[10px] uppercase tracking-widest font-bold">{t.waiting}</p>
               </div>
             ) : (
               ingredients.map((ing, idx) => (
                 <span key={idx} className="bg-stone-900/80 border border-stone-700 text-stone-400 px-4 py-2.5 text-xs font-bold uppercase flex items-center gap-3 animate-in zoom-in-95">
                   <span className="text-stone-200">{ing.name}</span>
-                  <span className="text-amber-700 text-[10px] font-mono">[{ing.qty}{ing.unit}]</span>
+                  <span className="text-amber-700 text-[10px] font-mono">[{ing.qty}{t.units[ing.unit as keyof typeof t.units] || ing.unit}]</span>
                   <button onClick={() => removeIngredient(ing.name)} className="text-stone-600 hover:text-red-500 transition-colors"><X className="h-3.5 w-3.5" /></button>
                 </span>
               ))
             )}
           </div>
 
-          {/* Cuisine Selection */}
           <div className="mb-8 space-y-4">
              <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-stone-600 flex items-center gap-2">
-               <Map className="h-3 w-3" /> Operational Sector Selection
+               <Map className="h-3 w-3" /> {t.sectorSelection}
              </h3>
              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
                {Object.values(CuisineType).map((cuisine) => (
@@ -266,7 +331,7 @@ export default function App() {
                    }`}
                  >
                    {selectedCuisine === cuisine && <Radio className="h-3 w-3 animate-pulse" />}
-                   <span className="text-center">{cuisine}</span>
+                   <span className="text-center">{t.cuisines[cuisine] || cuisine}</span>
                  </button>
                ))}
              </div>
@@ -281,21 +346,21 @@ export default function App() {
                 : 'bg-stone-900 border-stone-800 text-stone-700 cursor-not-allowed'
             }`}
           >
-            {loading ? <><Loader2 className="h-5 w-5 animate-spin" />CALCULATING PROTOCOLS...</> : <><Search className="h-5 w-5" />EXECUTE RESOURCE ANALYSIS</>}
+            {loading ? <><Loader2 className="h-5 w-5 animate-spin" />{t.calculating}</> : <><Search className="h-5 w-5" />{t.execute}</>}
           </button>
+          {error && <p className="mt-4 text-[10px] text-red-500 font-bold uppercase animate-pulse">{error}</p>}
         </section>
 
-        {/* RESULTS SECTION */}
         {generatedRecipes.length > 0 && (
           <div className="space-y-8 animate-in slide-in-from-bottom-6 duration-700">
             <div className="flex items-center justify-between border-b border-stone-800 pb-6">
               <h2 className="text-xl font-bold text-stone-100 uppercase tracking-[0.3em] flex items-center gap-3">
-                Yield Analysis Complete
+                {t.analysisComplete}
               </h2>
-              <button onClick={reset} className="text-[10px] text-stone-600 font-bold uppercase hover:text-amber-600 tracking-[0.3em]">Wipe Data &gt;&gt;</button>
+              <button onClick={reset} className="text-[10px] text-stone-600 font-bold uppercase hover:text-amber-600 tracking-[0.3em]">{t.wipeData}</button>
             </div>
             <div className="grid grid-cols-1 gap-10">
-              {generatedRecipes.map((recipe, idx) => <RecipeCard key={idx} recipe={recipe} />)}
+              {generatedRecipes.map((recipe, idx) => <RecipeCard key={idx} recipe={recipe} language={language} />)}
             </div>
           </div>
         )}

@@ -1,15 +1,42 @@
 
 import React, { useState } from 'react';
 import { Clock, Flame, AlertTriangle, Utensils, ArrowRight, MonitorPlay, Image as ImageIcon, Loader2 } from 'lucide-react';
-import { Recipe } from '../types';
+import { Recipe, Language } from '../types';
 
 interface RecipeCardProps {
   recipe: Recipe;
+  language: Language;
 }
 
-const RecipeCard: React.FC<RecipeCardProps> = ({ recipe }) => {
+const LOCALIZED_LABELS = {
+  [Language.EN]: {
+    rendering: "Rendering Visuals...",
+    corrupted: "Visual Corrupted",
+    unknown: "UNKNOWN",
+    steps: "Extract Steps",
+    close: "Close Data",
+    scan: "Scan Visuals",
+    protocols: "Execution Protocols",
+    deficit: "CRITICAL DEFICIT",
+    sub: "SUB"
+  },
+  [Language.ZH]: {
+    rendering: "正在渲染视觉效果...",
+    corrupted: "视觉数据损坏",
+    unknown: "未知",
+    steps: "提取步骤",
+    close: "关闭数据",
+    scan: "扫描影像",
+    protocols: "执行协议",
+    deficit: "关键缺口",
+    sub: "替代"
+  }
+};
+
+const RecipeCard: React.FC<RecipeCardProps> = ({ recipe, language }) => {
   const [expanded, setExpanded] = useState(false);
   const isOptimal = !recipe.missing || recipe.missing.length === 0;
+  const labels = LOCALIZED_LABELS[language];
 
   const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(
     (recipe.real_world_match || recipe.name) + " recipe tutorial"
@@ -23,7 +50,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({ recipe }) => {
         {recipe.imageLoading ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-stone-700 bg-stone-950/50">
             <Loader2 className="h-8 w-8 animate-spin mb-2 text-amber-900" />
-            <span className="text-[10px] uppercase tracking-widest animate-pulse font-bold">Rendering Visuals...</span>
+            <span className="text-[10px] uppercase tracking-widest animate-pulse font-bold">{labels.rendering}</span>
           </div>
         ) : recipe.imageUrl ? (
           <img 
@@ -34,14 +61,11 @@ const RecipeCard: React.FC<RecipeCardProps> = ({ recipe }) => {
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-stone-700">
              <ImageIcon className="h-8 w-8 mb-2 opacity-50" />
-             <span className="text-[10px] uppercase tracking-widest">Visual Corrupted</span>
+             <span className="text-[10px] uppercase tracking-widest">{labels.corrupted}</span>
           </div>
         )}
         
-        {/* Status Stripe */}
         <div className={`absolute top-0 left-0 bottom-0 w-1 ${isOptimal ? 'bg-emerald-600' : 'bg-amber-600'} z-10`} />
-        
-        {/* Overlay for better text legibility if needed */}
         <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-stone-950 to-transparent pointer-events-none" />
       </div>
 
@@ -49,7 +73,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({ recipe }) => {
         <div className="flex justify-between items-start mb-4">
           <div className="pl-3">
             <span className="text-[10px] font-bold tracking-[0.2em] text-stone-600 uppercase mb-1 block">
-              {recipe.cuisine} // {recipe.real_world_match ? recipe.real_world_match.toUpperCase() : "UNKNOWN"}
+              {recipe.cuisine} // {recipe.real_world_match ? recipe.real_world_match.toUpperCase() : labels.unknown}
             </span>
             <h3 className="text-xl md:text-2xl font-bold text-stone-100 uppercase tracking-tight font-mono leading-tight">{recipe.name}</h3>
           </div>
@@ -63,15 +87,14 @@ const RecipeCard: React.FC<RecipeCardProps> = ({ recipe }) => {
           </div>
         </div>
 
-        {/* Missing Ingredients Warning */}
         {recipe.missing && recipe.missing.length > 0 && (
           <div className="mb-4 space-y-2 pl-3">
             {recipe.missing.map((item, idx) => (
               <div key={idx} className="flex flex-wrap items-center gap-2 text-[10px] px-3 py-2 border border-red-900/30 bg-red-950/20 text-red-400">
                  <AlertTriangle className="h-3 w-3 flex-shrink-0" />
                  <span className="font-mono uppercase tracking-wide">
-                   <span className="font-bold">CRITICAL DEFICIT [{item.name.toUpperCase()}]:</span> {item.reason || "Missing"}
-                   {item.sub && <span className="text-stone-500 ml-1"> &gt;&gt; SUB: {item.sub.toUpperCase()}</span>}
+                   <span className="font-bold">{labels.deficit} [{item.name.toUpperCase()}]:</span> {item.reason || "Missing"}
+                   {item.sub && <span className="text-stone-500 ml-1"> >> {labels.sub}: {item.sub.toUpperCase()}</span>}
                  </span>
               </div>
             ))}
@@ -91,7 +114,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({ recipe }) => {
             onClick={() => setExpanded(!expanded)}
             className="flex-1 flex items-center justify-center gap-2 bg-stone-950 hover:bg-stone-800 text-stone-400 hover:text-stone-100 py-3 text-[10px] font-bold uppercase tracking-[0.2em] transition-all border border-stone-800 active:scale-95"
           >
-            {expanded ? "Close Data" : "Extract Steps"}
+            {expanded ? labels.close : labels.steps}
             <ArrowRight className={`h-3 w-3 transition-transform ${expanded ? '-rotate-90' : 'rotate-90'}`} />
           </button>
           
@@ -102,7 +125,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({ recipe }) => {
             className="flex-1 flex items-center justify-center gap-2 bg-stone-950 hover:bg-amber-900/10 text-amber-700 hover:text-amber-500 py-3 text-[10px] font-bold uppercase tracking-[0.2em] transition-all border border-amber-900/30 active:scale-95"
           >
             <MonitorPlay className="h-3 w-3" />
-            Scan Visuals
+            {labels.scan}
           </a>
         </div>
       </div>
@@ -110,7 +133,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({ recipe }) => {
       {expanded && (
         <div className="bg-stone-950/80 p-8 border-t border-stone-800 animate-in slide-in-from-top-2">
           <h4 className="font-bold text-amber-700 text-[10px] uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
-             <Utensils className="h-3 w-3" /> Execution Protocols
+             <Utensils className="h-3 w-3" /> {labels.protocols}
           </h4>
           <ol className="space-y-6">
             {recipe.instructions.map((step, idx) => (

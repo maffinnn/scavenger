@@ -25,6 +25,11 @@ export interface Recipe {
   imageLoading?: boolean;
 }
 
+export enum Language {
+  EN = 'EN',
+  ZH = 'ZH'
+}
+
 export enum CuisineType {
   Survival = 'Survival (Basic)',
   Italian = 'Italian Sector',

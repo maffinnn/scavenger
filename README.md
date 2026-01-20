@@ -8,10 +8,9 @@ Clearance: All Survivors
 ```
 
 ## 0. DEMO
-![Main Interface](assets/ss1.png)
+![Demo](assets/out.gif)
 ![Output](assets/ss2.png)
 
-[Watch Demo Video](https://drive.google.com/file/d/1W1-Kc5w8vU5xfRgylVpO3B8oCg5JQQtW/view?usp=sharing)
 
 ### NOW IT IS AVAILABLE AT https://scavenger-your-last-resort-to-cook-230170771138.us-west1.run.app/
 ### TO VIEW VISITORS COUNT, CLICK HERE: https://api.counterapi.dev/v1/scavenger-ai-survival/global-nodes/

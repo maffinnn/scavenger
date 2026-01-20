@@ -26,11 +26,17 @@ export interface Recipe {
 }
 
 export enum CuisineType {
-  Survival = 'Survival',
+  Survival = 'Survival (Basic)',
   Italian = 'Italian Sector',
   Asian = 'Asian Sector',
   Latin = 'Latin Sector',
-  Comfort = 'Morale Boost (Comfort)'
+  MiddleEastern = 'Arid/Desert Sector',
+  Nordic = 'Arctic/Cold Sector',
+  French = 'Gourmet/Luxury Sector',
+  Military = 'Military/High-Cal',
+  Healthy = 'Nutritional/Vitality',
+  PlantBased = 'Foraged/Botanical',
+  Comfort = 'Morale/Sweet Sector'
 }
 
 export const UNITS = ['pcs', 'g', 'kg', 'ml', 'l', 'cups', 'tbsp', 'tsp', 'packs'];

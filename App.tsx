@@ -1,8 +1,9 @@
 
-import React, { useState, useCallback, useEffect } from 'react';
-import { Plus, X, Utensils, Search, AlertTriangle, Box, Loader2, Radio, Globe } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, X, Utensils, Search, Box, Loader2, Radio, Globe, Video, Download, Play, ShieldAlert, AlertCircle, Map } from 'lucide-react';
 import { Ingredient, Recipe, UNITS, CuisineType } from './types';
 import { generateRecipesWithAI, generateRecipeImage } from './services/geminiService';
+import { GoogleGenAI } from "@google/genai";
 import RecipeCard from './components/RecipeCard';
 
 export default function App() {
@@ -12,6 +13,9 @@ export default function App() {
   const [unitInput, setUnitInput] = useState("pcs");
   const [selectedCuisine, setSelectedCuisine] = useState<CuisineType>(CuisineType.Survival);
   
+  // Validation State
+  const [validationError, setValidationError] = useState("");
+
   // AI State
   const [generatedRecipes, setGeneratedRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(false);
@@ -21,20 +25,15 @@ export default function App() {
   const [visitorCount, setVisitorCount] = useState<number | null>(null);
   const [telemetryStatus, setTelemetryStatus] = useState<"SYNCING" | "ONLINE" | "RECOVERY">("SYNCING");
 
-  // Visitor Tracking Implementation
   useEffect(() => {
     const trackVisitor = async () => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
-
       try {
-        // Switching to api.counterapi.dev as countapi.xyz is frequently offline
         const response = await fetch(`https://api.counterapi.dev/v1/scavenger-ai-survival/global-nodes/up`, {
           signal: controller.signal
         });
-        
         clearTimeout(timeoutId);
-
         if (response.ok) {
           const data = await response.json();
           setVisitorCount(data.count || data.value);
@@ -44,7 +43,6 @@ export default function App() {
         }
       } catch (err) {
         clearTimeout(timeoutId);
-        // Fallback to a "Local Session ID" if the global tracker fails
         setTelemetryStatus("RECOVERY");
         const localId = Math.floor(Math.random() * 90000) + 10000;
         setVisitorCount(localId);
@@ -53,9 +51,45 @@ export default function App() {
     trackVisitor();
   }, []);
 
+  const validateInput = (value: string) => {
+    if (!value) return { valid: true, msg: "" };
+    
+    // 1. English Only check (Alphabetic + spaces)
+    const englishRegex = /^[A-Za-z\s]+$/;
+    if (!englishRegex.test(value)) {
+      return { valid: false, msg: "CRITICAL: ENGLISH ALPHABETIC CHARACTERS ONLY." };
+    }
+
+    // 2. List detection (Checking for commas or common list markers)
+    if (value.includes(",") || value.includes(";") || value.includes("&")) {
+       return { valid: false, msg: "INVALID ENTRY: MULTIPLE RESOURCES DETECTED. ENTER ONE AT A TIME." };
+    }
+
+    // 3. Word count check
+    const wordCount = value.trim().split(/\s+/).length;
+    if (wordCount > 4) {
+      return { valid: false, msg: "INVALID ENTRY: INPUT TOO COMPLEX. ENTER A SINGLE RESOURCE NAME." };
+    }
+
+    return { valid: true, msg: "" };
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setNameInput(value);
+    const validation = validateInput(value);
+    setValidationError(validation.msg);
+  };
+
   const handleAddIngredient = () => {
     if (!nameInput.trim()) return;
     
+    const validation = validateInput(nameInput);
+    if (!validation.valid) {
+      setValidationError(validation.msg);
+      return;
+    }
+
     const newIng: Ingredient = {
       name: nameInput.trim().toLowerCase(),
       qty: parseFloat(qtyInput) || 1, 
@@ -66,6 +100,9 @@ export default function App() {
       setIngredients([...ingredients, newIng]);
       setNameInput("");
       setQtyInput("");
+      setValidationError("");
+    } else {
+      setValidationError("RESOURCE ALREADY REGISTERED IN CACHE.");
     }
   };
 
@@ -84,17 +121,13 @@ export default function App() {
 
   const handleGenerate = async () => {
     if (ingredients.length === 0) return;
-    
     setLoading(true);
     setError("");
     setGeneratedRecipes([]);
-
     try {
       const recipes = await generateRecipesWithAI(ingredients, selectedCuisine);
-      
       const recipesWithState = recipes.map(r => ({ ...r, imageUrl: null, imageLoading: true }));
       setGeneratedRecipes(recipesWithState);
-
       recipesWithState.forEach(async (recipe) => {
         try {
           const imgUrl = await generateRecipeImage(recipe.real_world_match || recipe.name);
@@ -107,9 +140,7 @@ export default function App() {
           );
         }
       });
-
     } catch (err: any) {
-      console.error("Recipe generation failed:", err);
       setError("System breach or connectivity lost. Survival protocols offline.");
     } finally {
       setLoading(false);
@@ -118,7 +149,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-stone-950 text-stone-300 font-mono selection:bg-amber-900 selection:text-white pb-12">
-      {/* Header */}
       <header className="bg-stone-900 border-b border-stone-800 p-6 sticky top-0 z-50 shadow-2xl shadow-black/50">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -130,69 +160,42 @@ export default function App() {
               <span className="text-[10px] text-stone-500 font-bold tracking-[0.3em] block mt-1 uppercase">RESOURCE OPTIMIZATION ENGINE</span>
             </div>
           </div>
-          
           <div className="hidden md:flex items-center gap-6">
-            {/* Global Telemetry Display */}
-            <div className="flex flex-col items-end border-r border-stone-800 pr-6">
-               <div className="flex items-center gap-2 mb-1">
-                 <Globe className={`h-3 w-3 ${telemetryStatus === 'ONLINE' ? 'text-amber-600 animate-pulse' : 'text-stone-700'}`} />
-                 <span className="text-[9px] text-stone-500 font-bold tracking-widest uppercase">
-                   {telemetryStatus === 'RECOVERY' ? 'Local_Telemetry' : 'Global_Telemetry'}
+            <div className="bg-stone-950 px-3 py-1 border border-amber-900/30 rounded-sm">
+                 <span className="text-xs font-bold text-amber-500">
+                   NODE_{visitorCount !== null ? visitorCount.toString().padStart(6, '0') : 'SYNC...'}
                  </span>
-               </div>
-               <div className={`bg-stone-950 px-3 py-1 border rounded-sm transition-colors ${telemetryStatus === 'RECOVERY' ? 'border-stone-800' : 'border-amber-900/30'}`}>
-                 <span className={`text-xs font-bold font-mono ${telemetryStatus === 'RECOVERY' ? 'text-stone-600' : 'text-amber-500'}`}>
-                   {visitorCount !== null ? `NODE_${visitorCount.toString().padStart(6, '0')}` : 'SYNCING...'}
-                 </span>
-               </div>
-            </div>
-
-            <div className="flex flex-col items-end">
-              <div className="flex items-center gap-2">
-                <div className={`h-2 w-2 rounded-full animate-pulse ${telemetryStatus === 'RECOVERY' ? 'bg-amber-700' : 'bg-emerald-500'}`}></div>
-                <p className="text-stone-300 text-[10px] uppercase tracking-widest font-bold">
-                  {telemetryStatus === 'RECOVERY' ? 'Isolated Session' : 'Mainframe Online'}
-                </p>
-              </div>
-              <p className="text-stone-600 text-[9px] uppercase tracking-widest">SECURE CONNECTION ESTABLISHED</p>
             </div>
           </div>
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto p-4 md:p-8 space-y-10">
-        
         {/* INPUT SECTION */}
         <section className={`bg-stone-900 rounded-sm border border-stone-800 p-8 transition-all relative overflow-hidden shadow-xl ${generatedRecipes.length > 0 ? 'opacity-60 hover:opacity-100' : ''}`}>
-           {/* Decorative corner accents */}
-          <div className="absolute top-0 left-0 w-3 h-3 border-t border-l border-amber-800/60"></div>
-          <div className="absolute top-0 right-0 w-3 h-3 border-t border-r border-amber-800/60"></div>
-          <div className="absolute bottom-0 left-0 w-3 h-3 border-b border-l border-amber-800/60"></div>
-          <div className="absolute bottom-0 right-0 w-3 h-3 border-b border-r border-amber-800/60"></div>
-
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-xs font-bold uppercase tracking-[0.3em] text-amber-700 flex items-center gap-2">
-              <Utensils className="h-4 w-4" />
-              Scan Cache: Input Available Resources
+              <Utensils className="h-4 w-4" /> Scan Cache: Resource Input
             </h2>
             <div className="text-[9px] text-stone-600 uppercase font-bold bg-stone-950 px-2 py-1 rounded border border-stone-800">
-              MODULE_TYPE: SUPPLY_LOADER
+              SINGLE_ENTRY_MODE: ENABLED
             </div>
           </div>
 
-          {/* Add Ingredient Row */}
-          <div className="flex flex-col md:flex-row gap-3 mb-6">
-            <div className="flex-1 group">
+          <div className="flex flex-col md:flex-row gap-3 mb-2">
+            <div className="flex-1 relative">
               <input
                 type="text"
                 value={nameInput}
-                onChange={(e) => setNameInput(e.target.value)}
+                onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
-                placeholder="RESOURCE ID (E.G. POTATOES)"
-                className="w-full px-5 py-4 bg-stone-950 border border-stone-800 rounded-sm text-stone-200 placeholder-stone-700 focus:outline-none focus:border-amber-900 focus:ring-1 focus:ring-amber-900/20 uppercase text-sm transition-all"
+                placeholder="RESOURCE NAME (E.G. POTATOES)"
+                className={`w-full px-5 py-4 bg-stone-950 border rounded-sm text-stone-200 placeholder-stone-700 focus:outline-none uppercase text-sm transition-colors ${
+                  validationError ? 'border-red-900 focus:border-red-600' : 'border-stone-800 focus:border-amber-900'
+                }`}
               />
             </div>
-            <div className="flex gap-3 w-full md:w-auto">
+            <div className="flex gap-3">
               <input
                 type="number"
                 value={qtyInput}
@@ -209,120 +212,90 @@ export default function App() {
                 {UNITS.map(u => <option key={u} value={u}>{u.toUpperCase()}</option>)}
               </select>
               <button 
-                onClick={handleAddIngredient}
-                className="bg-stone-800 hover:bg-stone-700 border border-stone-700 text-amber-500 px-8 py-4 rounded-sm font-bold transition-all active:scale-95 group"
+                onClick={handleAddIngredient} 
+                disabled={!!validationError}
+                className={`px-8 py-4 rounded-sm font-bold transition-all border ${
+                  validationError ? 'bg-stone-950 border-stone-900 text-stone-800 cursor-not-allowed' : 'bg-stone-800 hover:bg-stone-700 border-stone-700 text-amber-500'
+                }`}
               >
-                <Plus className="h-5 w-5 group-hover:rotate-90 transition-transform" />
+                <Plus />
               </button>
             </div>
           </div>
 
-          {/* Tag Cloud */}
-          <div className="flex flex-wrap gap-2.5 mb-8 min-h-[100px] bg-stone-950/40 p-6 border border-stone-800/80 content-start rounded-sm">
-            {ingredients.length === 0 && (
-              <div className="w-full h-full flex flex-col items-center justify-center text-stone-700 gap-3 py-4">
-                <Radio className="h-6 w-6 animate-pulse" />
-                <p className="text-[10px] uppercase tracking-[0.2em] font-bold">Waiting for local cache telemetry...</p>
-              </div>
+          {/* Validation Feedback */}
+          <div className="min-h-[24px] mb-6">
+            {validationError && (
+              <p className="text-[10px] text-red-500 font-bold flex items-center gap-2 animate-pulse uppercase tracking-wider">
+                <AlertCircle className="h-3 w-3" /> {validationError}
+              </p>
             )}
-            {ingredients.map((ing, idx) => (
-              <span key={idx} className="bg-stone-900/80 border border-stone-700 text-stone-400 px-4 py-2.5 text-xs font-bold uppercase flex items-center gap-3 group hover:border-amber-900/60 transition-all cursor-default shadow-sm animate-in zoom-in-95">
-                <span className="text-stone-200">{ing.name}</span>
-                <span className="text-amber-700 text-[10px] font-mono">
-                  [{ing.qty}{ing.unit}]
-                </span>
-                <button 
-                  onClick={() => removeIngredient(ing.name)} 
-                  className="text-stone-600 hover:text-red-500 ml-1 transition-colors p-1"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </span>
-            ))}
           </div>
 
-          {/* Controls */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-stone-800/50">
-             <div>
-              <label className="block text-[10px] font-bold text-stone-600 mb-3 uppercase tracking-[0.3em]">Operational Protocol</label>
-              <select 
-                value={selectedCuisine} 
-                onChange={(e) => setSelectedCuisine(e.target.value as CuisineType)}
-                className="w-full p-3 bg-stone-950 border border-stone-800 rounded-sm text-stone-400 focus:border-amber-900 outline-none uppercase text-xs font-bold tracking-widest cursor-pointer"
-              >
-                {Object.values(CuisineType).map(type => (
-                  <option key={type} value={type}>{type.toUpperCase()}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-               <label className="block text-[10px] font-bold text-stone-600 mb-3 uppercase tracking-[0.3em]">Resource Parameters</label>
-               <div className="flex items-start gap-3 text-[10px] text-stone-500 bg-stone-950 p-4 border border-stone-800 leading-relaxed italic">
-                 <AlertTriangle className="h-4 w-4 text-amber-900 flex-shrink-0 mt-0.5" />
-                 <span className="uppercase">Notice: Base staples (Salt, Oil, Pepper, Water, Flour) are assumed available in current sector. Optimized recipes will prioritize minimal waste.</span>
-               </div>
-            </div>
+          <div className="flex flex-wrap gap-2.5 mb-8 min-h-[100px] bg-stone-950/40 p-6 border border-stone-800/80 rounded-sm">
+            {ingredients.length === 0 ? (
+              <div className="w-full h-full flex flex-col items-center justify-center text-stone-700 py-4">
+                <Radio className="h-6 w-6 animate-pulse mb-2" />
+                <p className="text-[10px] uppercase tracking-widest font-bold">Waiting for input...</p>
+              </div>
+            ) : (
+              ingredients.map((ing, idx) => (
+                <span key={idx} className="bg-stone-900/80 border border-stone-700 text-stone-400 px-4 py-2.5 text-xs font-bold uppercase flex items-center gap-3 animate-in zoom-in-95">
+                  <span className="text-stone-200">{ing.name}</span>
+                  <span className="text-amber-700 text-[10px] font-mono">[{ing.qty}{ing.unit}]</span>
+                  <button onClick={() => removeIngredient(ing.name)} className="text-stone-600 hover:text-red-500 transition-colors"><X className="h-3.5 w-3.5" /></button>
+                </span>
+              ))
+            )}
+          </div>
+
+          {/* Cuisine Selection */}
+          <div className="mb-8 space-y-4">
+             <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-stone-600 flex items-center gap-2">
+               <Map className="h-3 w-3" /> Operational Sector Selection
+             </h3>
+             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+               {Object.values(CuisineType).map((cuisine) => (
+                 <button
+                   key={cuisine}
+                   onClick={() => setSelectedCuisine(cuisine)}
+                   className={`px-3 py-3 text-[9px] font-bold uppercase tracking-wider border transition-all duration-300 flex flex-col items-center justify-center gap-1.5 min-h-[64px] ${
+                     selectedCuisine === cuisine 
+                       ? 'bg-amber-900/10 border-amber-600 text-amber-500 shadow-[0_0_15px_rgba(217,119,6,0.1)]' 
+                       : 'bg-stone-950 border-stone-800 text-stone-600 hover:border-stone-700 hover:text-stone-400'
+                   }`}
+                 >
+                   {selectedCuisine === cuisine && <Radio className="h-3 w-3 animate-pulse" />}
+                   <span className="text-center">{cuisine}</span>
+                 </button>
+               ))}
+             </div>
           </div>
 
           <button 
             onClick={handleGenerate}
             disabled={ingredients.length === 0 || loading}
-            className={`w-full mt-10 py-5 border font-bold text-[11px] tracking-[0.4em] uppercase flex items-center justify-center gap-4 transition-all duration-300 ${
+            className={`w-full py-5 border font-bold text-[11px] tracking-[0.4em] uppercase flex items-center justify-center gap-4 transition-all duration-300 ${
               ingredients.length > 0 && !loading
-                ? 'bg-amber-900/10 border-amber-900 text-amber-500 hover:bg-amber-900 hover:text-white hover:border-amber-700 shadow-[0_0_25px_-5px_rgba(245,158,11,0.2)] active:scale-[0.98]' 
+                ? 'bg-amber-900/10 border-amber-900 text-amber-500 hover:bg-amber-900 hover:text-white' 
                 : 'bg-stone-900 border-stone-800 text-stone-700 cursor-not-allowed'
             }`}
           >
-            {loading ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Calculating Yield...
-              </>
-            ) : (
-              <>
-                <Search className="h-5 w-5" />
-                Initialize Neural Generation
-              </>
-            )}
+            {loading ? <><Loader2 className="h-5 w-5 animate-spin" />CALCULATING PROTOCOLS...</> : <><Search className="h-5 w-5" />EXECUTE RESOURCE ANALYSIS</>}
           </button>
         </section>
-
-        {/* ERROR STATE */}
-        {error && (
-          <div className="bg-red-950/20 border border-red-900/50 p-6 text-center animate-in slide-in-from-top-4 rounded-sm shadow-lg">
-            <p className="text-red-500 text-xs font-bold uppercase tracking-[0.3em] flex items-center justify-center gap-3">
-              <AlertTriangle className="h-5 w-5" /> {error}
-            </p>
-          </div>
-        )}
 
         {/* RESULTS SECTION */}
         {generatedRecipes.length > 0 && (
           <div className="space-y-8 animate-in slide-in-from-bottom-6 duration-700">
-            
             <div className="flex items-center justify-between border-b border-stone-800 pb-6">
               <h2 className="text-xl font-bold text-stone-100 uppercase tracking-[0.3em] flex items-center gap-3">
-                <div className="h-3 w-3 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-                Neural Analysis Complete
+                Yield Analysis Complete
               </h2>
-              <button 
-                onClick={reset} 
-                className="text-[10px] text-stone-600 font-bold uppercase hover:text-amber-600 tracking-[0.3em] transition-all hover:translate-x-1"
-              >
-                Wipe Session_Data &gt;&gt;
-              </button>
+              <button onClick={reset} className="text-[10px] text-stone-600 font-bold uppercase hover:text-amber-600 tracking-[0.3em]">Wipe Data &gt;&gt;</button>
             </div>
-
             <div className="grid grid-cols-1 gap-10">
-              {generatedRecipes.map((recipe, idx) => (
-                <RecipeCard key={idx} recipe={recipe} />
-              ))}
-            </div>
-            
-            <div className="flex justify-center pt-8">
-               <div className="text-[9px] text-stone-700 font-bold tracking-[0.5em] uppercase border border-stone-900 px-6 py-3 rounded-full">
-                  EOF: End of Scavenger Telemetry
-               </div>
+              {generatedRecipes.map((recipe, idx) => <RecipeCard key={idx} recipe={recipe} />)}
             </div>
           </div>
         )}

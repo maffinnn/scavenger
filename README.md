@@ -8,8 +8,7 @@ Clearance: All Survivors
 ```
 
 ## 0. DEMO
-![Demo](assets/out.gif)
-![Output](assets/ss2.png)
+![Demo](assets/output.gif)
 
 
 ### NOW IT IS AVAILABLE AT https://scavenger-your-last-resort-to-cook-230170771138.us-west1.run.app/

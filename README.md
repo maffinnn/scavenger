@@ -11,7 +11,7 @@ Clearance: All Survivors
 ![Demo](assets/output.gif)
 
 
-### NOW IT IS AVAILABLE AT https://scavenger-your-last-resort-to-cook-230170771138.us-west1.run.app/
+### NOW IT IS AVAILABLE AT https://scavengers.app/
 ### TO VIEW VISITORS COUNT, CLICK HERE: https://api.counterapi.dev/v1/scavenger-ai-survival/global-nodes/
 
 ## 1. SYSTEM OVERVIEW
